@@ -7,6 +7,11 @@
 A simple RAML to HTML documentation generator, written for Node.js.
 Check [raml2md](https://github.com/raml2html/raml2md) for a RAML to Markdown generator.
 
+## Big Diffrence
+
+`$ref` value use the ID of schema instead of file path.
+
+**Notice:** Use `#` as $ref value to avoid recursively expanding.
 
 ## Install
 ```

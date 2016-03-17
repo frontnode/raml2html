@@ -3,6 +3,7 @@
 var raml2obj = require('raml2obj');
 var pjson = require('./package.json');
 var Q = require('q');
+var fs = require('fs');
 
 /**
  * Render the source RAML object using the config's processOutput function
@@ -38,10 +39,11 @@ function render(source, config) {
 
 /**
  * @param {String} [mainTemplate] - The filename of the main template, leave empty to use default templates
+ * @param {String} [schemasPath] - Schema files path for ref with Id
  * @param {String} [templatesPath] - Optional, by default it uses the current working directory
  * @returns {{processRamlObj: Function, postProcessHtml: Function}}
  */
-function getDefaultConfig(mainTemplate, templatesPath) {
+function getDefaultConfig(mainTemplate, schemasPath, templatesPath) {
   if (!mainTemplate) {
     mainTemplate = './lib/template.nunjucks';
 
@@ -55,7 +57,7 @@ function getDefaultConfig(mainTemplate, templatesPath) {
       var nunjucks = require('nunjucks');
       var markdown = require('nunjucks-markdown');
       var marked = require('marked');
-      var ramljsonexpander = require('raml-jsonschema-expander');
+      var ramljsonexpander = require('./expander');
       var renderer = new marked.Renderer();
       renderer.table = function (thead, tbody) {
         // Render Bootstrap style tables
@@ -77,8 +79,34 @@ function getDefaultConfig(mainTemplate, templatesPath) {
         }
       };
 
+      //Only interate schemas defined in raml entry file
+      /*for (var schemaIndex in schemas) {
+        var schema = schemas[schemaIndex];
+        var objectKey = Object.keys(schema)[0];
+        var schemaText = schema[objectKey];
+        if (isJsonSchema(schemaText)) {
+          var schemaObject = JSON.parse(schemaText);
+          if (schemaObject.id) {
+            schemaMap[schemaObject.id.toLowerCase()] = schemaObject;
+          }
+        }
+      }*/
+
+      var schemaMap = {};
+      //Cache all the schema objects
+      if (schemasPath) {
+        var files = require('glob').sync(schemasPath + '/**/*.json');
+        files.forEach(function(file) {
+          var schema = JSON.parse(fs.readFileSync(file, 'utf8'));
+          if (schema.id) {
+            schemaMap[schema.id.toLowerCase()] = schema;
+          }
+        });
+      }
+      console.log(Object.keys(schemaMap))
+
       // Find and replace the $ref parameters.
-      ramlObj = ramljsonexpander.expandJsonSchemas(ramlObj);
+      ramlObj = ramljsonexpander.expandJsonSchemas(ramlObj, schemaMap);
 
       // Render the main template using the raml object and fix the double quotes
       var html = env.render(mainTemplate, ramlObj);
