@@ -1,0 +1,456 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <title>{{ title }} API documentation</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="generator" content="https://github.com/kevinrenskers/raml2html {{ config.raml2HtmlVersion }}">
+
+    <link rel="stylesheet" href="http://cdn.bootcss.com/bootstrap/3.1.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="http://cdn.bootcss.com/hint.css/2.1.0/hint.min.css">
+    <link rel="stylesheet" href="http://cdn.bootcss.com/highlight.js/8.1/styles/default.min.css">
+    <script type="text/javascript" src="http://cdn.bootcss.com/jquery/1.11.0/jquery.min.js"></script>
+    <script type="text/javascript" src="http://cdn.bootcss.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="http://cdn.bootcss.com/highlight.js/8.1/highlight.min.js"></script>
+
+    <script type="text/javascript">
+      $(document).ready(function() {
+        $('.page-header pre code, .top-resource-description pre code').each(function(i, block) {
+          hljs.highlightBlock(block);
+        });
+
+        $('[data-toggle]').click(function() {
+          var selector = $(this).data('target') + ' pre code';
+          $(selector).each(function(i, block) {
+            hljs.highlightBlock(block);
+          });
+        });
+
+        // open modal on hashes like #_action_get
+        $(window).bind('hashchange', function(e) {
+          var anchor_id = document.location.hash.substr(1); //strip #
+          var element = $('#' + anchor_id);
+
+          // do we have such element + is it a modal?  --> show it
+          if (element.length && element.hasClass('modal')) {
+            element.modal('show');
+          }
+        });
+
+        // execute hashchange on first page load
+        $(window).trigger('hashchange');
+
+        // remove url fragment on modal hide
+        $('.modal').on('hidden.bs.modal', function() {
+          try {
+            if (history && history.replaceState) {
+                history.replaceState({}, '', '#');
+            }
+          } catch(e) {}
+        });
+
+        // add access token on modal show
+        $('.modal').on('shown.bs.modal', function() {
+          var $this = $(this);
+          $this.find('input[name="access_token"]').val($('#access-token').val());
+          $this.find('.schema-data').each(function(){
+            $renderContainer = $(this).next('.schema');
+            $renderContainer.html(concatSchema(JSON.parse(this.innerHTML)));
+          })
+        });
+
+        function concatTip(field) {
+          var html = '';
+          html += (field.type ? '<span class="field-type">' + field.type + '</span>' : '');
+          html += (field.optional ? '<span class="italic required-option">optional</span>' : '<span class="strong required-option">required</span>');
+          html += (field.description ? '<a href="#" class="hint--top" data-hint="' + field.description + '"><i class="glyphicon glyphicon-info-sign"></i></a>' : '');
+          return html;
+        }
+
+        function concatSchema (schema) {
+          var html = '';
+          var fields = [];
+          var requiredFields = schema['required'];
+          for (var field in schema['properties']) {
+            var fieldInfo = schema['properties'][field];
+            fieldInfo['name'] = field;
+            fieldInfo['optional'] = true;
+            if (requiredFields) {
+              fieldInfo['optional'] = requiredFields.indexOf(field) == -1;
+            }
+            fields.push(fieldInfo);
+          }
+          html += '<span class="strong">{</span>';
+          fields.forEach(function(field){
+            html += '<div name="' + field.name + '">';
+            html += '<span class="strong">' + field.name + ':</span>';
+            if ('object' == field.type) {
+              html += concatSchema(field);
+            } else if ('array' == field.type) {
+              html += concatTip(field);
+              html += '<span class="strong">[</span>';
+              html += concatSchema(field.items);
+              html += '<span class="strong">]</span>';
+            } else {
+              html += concatTip(field);
+            }
+            html += '</div>';
+          });
+          html += '<span class="strong">}</span>';
+          return html;
+        }
+
+        function rest (method, url, data, btn) {
+          if ('get'!== method && data) {
+            data = JSON.stringify($.parseJSON(data));
+          }
+
+          var $responseDom = btn.parent().parent().find('.response-body');
+
+          $.ajax({
+            contentType: 'application/json',
+            dataType: 'json',
+            type: method,
+            url: url,
+            data: data,
+            success: function(data){
+              $responseDom.find('section[type="body"]').children('pre').text(JSON.stringify(data, null, 4));
+            },
+            error: function(xhr){
+              $responseDom.find('section[type="body"]').children('pre').text(xhr.responseText);
+            },
+            complete: function(xhr){
+              var responseHeaders = xhr.getAllResponseHeaders();
+              var status = xhr.status;
+              $responseDom.find('section[type="url"]').children('pre').text(url);
+              $responseDom.find('section[type="code"]').children('pre').text(status);
+              $responseDom.find('section[type="header"]').children('pre').text(responseHeaders);
+              $responseDom.removeClass('hide');
+            }
+          });
+        }
+
+        function getDataByForm (forms) {
+          var data = {};
+          if (forms.length > 0) {
+            var i = 0, len = forms.length;
+            for(; i < len; i++) {
+              var key = $(forms[i]).children('label').text();
+              var value = $(forms[i]).find('input[type="text"], input[type="number"], select').val();
+              data[key] = value;
+            }
+          }
+          return data;
+        }
+
+        function formatUrl (url, uriParam, queryParams, token, method) {
+          for (key in uriParam) {
+            var str = '{' + key + '}'
+            url = url.replace(str, uriParam[key]);
+          }
+          if (queryParams['access_token']) {
+            token = queryParams['access_token'];
+          }
+          url = url + '?access_token=' + token;
+          // Format url parameter
+          if ('get' !== method) {
+            delete queryParams['access_token'];
+            for (key in queryParams) {
+              url = url + '&' + key + '=' + queryParams[key];
+            }
+          }
+          return $baseUri.text() + url;
+        }
+
+        //Cache access token
+        $accessToken = $('#access-token');
+        $baseUri = $('#base-uri');
+
+        //Handle trying it
+        $('.request-btn').click(function(e){
+          var $btn = $(this);
+          var $form = $btn.parent();
+          var payload = $form.find('.request-payload');
+          var uriFormGroup = $form.children('section[type="uri"]').find('div[class="form-group"]');
+          var queryFormGroup = $form.children('section[type="query"]').find('div[class="form-group"]');
+          //Collect uri parameters and query parameters
+          var uriParams = getDataByForm(uriFormGroup);
+          var queryParams = getDataByForm(queryFormGroup);
+          var method = $btn.data('method');
+          var url = formatUrl($btn.data('path'), uriParams, queryParams, $accessToken.val(), method);
+          delete queryParams['access_token'];
+          var params;
+          if ('get' === method) {
+            params = queryParams;
+          } else {
+            params = $form.find('section[type="example"]').find('pre').text();
+          }
+          //Send AJAX with parameters and access token with proper method
+          rest(method, url, params, $btn);
+          e.preventDefault();
+        });
+      });
+    </script>
+
+    <style>
+      /*Override Boostrap*/
+      .navbar-default {
+        background-color: #2c3e50;
+        border-color: #202d3b;
+        border-radius: 0;
+        min-height: 60px;
+      }
+      .navbar-default .navbar-nav>li>a {
+        color: #fff;
+        padding-top: 19.5px;
+        padding-bottom: 19.5px;
+      }
+      .navbar-default .navbar-brand {
+        color: #fff;
+        padding: 19.5px 15px;
+        font-size: 19px;
+        line-height: 21px;
+      }
+      .navbar-default
+      .navbar-nav>.active>a,
+      .navbar-default .navbar-nav>.active>a:hover,
+      .navbar-default .navbar-nav>.active>a:focus {
+        color: #fff;
+        background-color: #1a242f;
+      }
+      .navbar-default .navbar-brand:hover,
+      .navbar-default .navbar-nav>li>a:hover,
+      .navbar-default .navbar-nav>li>a:focus {
+        color: #18bc9c;
+      }
+
+      .hljs {
+        background: transparent;
+      }
+      .parent {
+        color: #999;
+      }
+      .list-group-item > .badge {
+        float: none;
+        margin-right: 6px;
+      }
+      .panel-title > .methods {
+        float: right;
+      }
+      .badge {
+        border-radius: 0;
+        text-transform: uppercase;
+        width: 70px;
+        font-weight: normal;
+        color: #f3f3f6;
+        line-height: normal;
+      }
+      .badge_get {
+        background-color: #63a8e2;
+      }
+      .badge_post {
+        background-color: #6cbd7d;
+      }
+      .badge_put {
+        background-color: #22bac4;
+      }
+      .badge_delete {
+        background-color: #d26460;
+      }
+      .badge_patch {
+        background-color: #ccc444;
+      }
+      .list-group, .panel-group {
+        margin-bottom: 0;
+      }
+      .panel-group .panel+.panel-white {
+        margin-top: 0;
+      }
+      .panel-group .panel-white {
+        border-bottom: 1px solid #F5F5F5;
+        border-radius: 0;
+      }
+      .panel-white:last-child {
+        border-bottom-color: white;
+        -webkit-box-shadow: none;
+        box-shadow: none;
+      }
+      .panel-white .panel-heading {
+        background: white;
+      }
+      .tab-pane ul {
+        padding-left: 2em;
+      }
+      .tab-pane h2 {
+        font-size: 1.2em;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #ddd;
+      }
+      .tab-pane h3 {
+        font-size: 1.1em;
+      }
+      .tab-content {
+        border-left: 1px solid #ddd;
+        border-right: 1px solid #ddd;
+        border-bottom: 1px solid #ddd;
+        padding: 10px;
+      }
+      #sidebar {
+        margin-top: 30px;
+        padding-right: 5px;
+        overflow: auto;
+        height: 90%;
+      }
+      .top-resource-description {
+        border-bottom: 1px solid #ddd;
+        background: #fcfcfc;
+        padding: 15px 15px 0 15px;
+        margin: -15px -15px 10px -15px;
+      }
+      .resource-description {
+        border-bottom: 1px solid #fcfcfc;
+        background: #fcfcfc;
+        padding: 15px 15px 0 15px;
+        margin: -15px -15px 10px -15px;
+      }
+      .resource-description p:last-child {
+        margin: 0;
+      }
+      .list-group .badge {
+        float: left;
+      }
+      .method_description {
+        margin-left: 85px;
+      }
+      .method_description p:last-child {
+        margin: 0;
+      }
+      .list-group-item {
+        cursor: pointer;
+      }
+      .list-group-item:hover {
+        background-color: #f5f5f5;
+      }
+      .request-payload {
+        background-color: #fff;
+        height: auto;
+      }
+      .bg-gray {
+        background-color: #ccc;
+      }
+      .schema-data {
+        display: none;
+      }
+      .schema div {
+        margin-left: 1em;
+      }
+      .schema span {
+        margin-right: 0.5em;
+      }
+      .strong {
+        font-weight: bold;
+      }
+      .italic {
+        font-style: italic;
+      }
+      .field-type {
+        color: blue;
+      }
+      .field-type:before {
+        content: "(";
+        color: #000;
+      }
+      .required-option:after {
+        content: ")";
+        font-style: normal;
+        font-weight: normal;
+      }
+      .tab-pane pre {
+        overflow: visible;
+      }
+    </style>
+  </head>
+
+  <body data-spy="scroll" data-target="#sidebar">
+    <div class="navbar navbar-default" role="navigation">
+      <div class="container">
+        <div class="navbar-header">
+            <a class="navbar-brand" href=".">Omnisocials Developer</a>
+        </div>
+        <div class="navbar-collapse collapse">
+            <!-- Main navigation -->
+            <ul class="nav navbar-nav">
+              <li>
+                <a href=".">Home</a>
+              </li>
+              <li>
+                <a href="webhook/">Webhook</a>
+              </li>
+              <li>
+                <a href="guides/">FAQ</a>
+              </li>
+              <li class="active">
+                <a href="api.html">APIs</a>
+              </li>
+            </ul>
+        </div>
+      </div>
+    </div>
+    </div>
+    <div class="container">
+      <div class="row">
+        <div class="col-md-9" role="main">
+          <div class="page-header">
+            <h1>{{ title }} API documentation{% if version %} <small>version {{ version }}</small>{% endif %}</h1>
+            <p id="base-uri">{{ baseUri }}</p>
+
+            {% for chapter in documentation %}
+              <h3 id="{{ chapter.uniqueId }}"><a href="#{{ chapter.uniqueId }}">{{ chapter.title }}</a></h3>
+              {% markdown %}{{ chapter.content }}{% endmarkdown %}
+            {% endfor %}
+          </div>
+
+          <!--access token input-->
+          <form class="form-horizontal">
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="accesss-token">Access Token</label>
+              <div class="col-sm-10">
+                <input type="text" class="form-control" id="access-token" placeholder="Input your access token got from developer center for trying APIs">
+              </div>
+            </div>
+          </form>
+
+          {% for resource in resources %}
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <h3 id="{{ resource.uniqueId }}" class="panel-title">{% if resource.displayName %}{{ resource.displayName}}{% else %}{{ resource.relativeUri }}{% endif %}</h3>
+              </div>
+
+              <div class="panel-body">
+                {% if resource.description %}
+                  <div class="top-resource-description">
+                    {% markdown %}{{ resource.description }}{% endmarkdown %}
+                  </div>
+                {% endif %}
+
+                <div class="panel-group">
+                  {% include "./resource.nunjucks" %}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="col-md-3">
+          <div id="sidebar" class="hidden-print affix" role="complementary">
+            <ul class="nav nav-pills nav-stacked">
+              {% for resource in resources %}
+                <li><a href="#{{ resource.uniqueId}}">{% if resource.displayName %}{{ resource.displayName}}{% else %}{{ resource.relativeUri }}{% endif %}</a></li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

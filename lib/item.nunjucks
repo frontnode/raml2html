@@ -29,7 +29,8 @@
 
   {% markdown %}{{ item.description }}{% endmarkdown %}
 
-  {% if item.schema %}
+  <!--Hide schema(item.schema)-->
+  {% if false %}
     <p><strong>Schema</strong>:</p>
     <pre><code>{{ item.schema | escape }}</code></pre>
   {% endif %}

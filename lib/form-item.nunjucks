@@ -1,0 +1,71 @@
+<div class="form-group">
+
+  {% if item.displayName %}
+    <label class="col-sm-3 control-label">{{ item.displayName }}</label>
+  {% else %}
+    <label class="col-sm-3 control-label">{{ key }}</label>
+  {% endif %}
+
+  <div class="col-sm-9">
+    {%- if item.type == 'integer' -%}
+      <input type="number" class="form-control"
+        {%- if item.description %}
+          placeholder="{{ item.minLength }}"
+        {%- endif -%}
+        {%- if item.minimum %}
+          min="{{ item.minimum }}"
+        {%- endif -%}
+        {%- if item.maximum %}
+          max="{{ item.maximum }}"
+        {%- endif -%}
+        {%- if item.required -%}
+          required="required"
+        {% endif -%}
+        {%- if item.default %}
+          value="{{ item.default }}"
+        {%- endif -%}
+      />
+    {%- else -%}
+      {%- if item.enum -%}
+        <select class="form-control"
+          {%- if item.required -%}
+            required="required"
+          {% endif -%}
+        >
+          {%- if item.default %}
+            <option selected="selected" value="{{ item.default }}">{{ item.default }}</option>
+          {%- endif -%}
+          {% for enum in item.enum %}
+            <option value="{{enum}}">{{enum}}</option>
+          {% else %}
+            <option>Empty enum values</option>
+          {% endfor %}
+        </select>
+      {%- else -%}
+        <input type="text" class="form-control" name="{{ item.displayName }}"
+          {%- if item.displayName == 'access_token' %}
+            disabled="disabled"
+          {%- endif -%}
+          {%- if item.description %}
+            placeholder="{{ item.minLength }}"
+          {%- endif -%}
+          {%- if item.minLength %}
+            minlength="{{ item.minLength }}"
+          {%- endif -%}
+          {%- if item.maxLength %}
+            maxlength="{{ item.maxLength }}"
+          {%- endif -%}
+          {%- if item.pattern %}
+            pattern="{{ item.pattern }}""
+          {%- endif -%}
+          {%- if item.required -%}
+            required="required"
+          {% endif -%}
+          {%- if item.default %}
+            value="{{ item.default }}"
+          {%- endif -%}
+        />
+      {%- endif -%}
+    {%- endif -%}
+  </div>
+</div>

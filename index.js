@@ -103,7 +103,6 @@ function getDefaultConfig(mainTemplate, schemasPath, templatesPath) {
           }
         });
       }
-      console.log(Object.keys(schemaMap))
 
       // Find and replace the $ref parameters.
       ramlObj = ramljsonexpander.expandJsonSchemas(ramlObj, schemaMap);

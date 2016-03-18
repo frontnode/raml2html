@@ -80,21 +80,13 @@
                 {% endif %}
 
                 {% if method.responses %}
-                  <li{%
-                    if not method.allUriParameters.length and not method.queryParameters
-                    and not method.headers and not method.body
-                    %} class="active"{%
-                    endif
-                    %}>
+                  <li>
                     <a href="#{{ resource.uniqueId }}_{{ method.method }}_response" data-toggle="tab">Response</a>
                   </li>
                 {% endif %}
-
-                {% if method.securedBy.length %}
                   <li>
-                    <a href="#{{ resource.uniqueId }}_{{ method.method }}_securedby" data-toggle="tab">Security</a>
+                    <a href="#{{ resource.uniqueId }}_{{ method.method }}_tring" data-toggle="tab">Try it</a>
                   </li>
-                {% endif %}
               </ul>
 
               <!-- Tab panes -->
@@ -141,27 +133,22 @@
                           </ul>
                         {% endif %}
 
-                        {% if b.schema %}
-                          <p><strong>Schema</strong>:</p>
-                          <pre><code>{{ b.schema | escape }}</code></pre>
-                        {% endif %}
-
                         {% if b.example %}
                           <p><strong>Example</strong>:</p>
                           <pre><code>{{ b.example | escape }}</code></pre>
                         {% endif %}
+
+                        {% if b.schema %}
+                          {% include "./schema.nunjucks" %}
+                        {% endif %}
+
                       {% endfor %}
                     {% endif %}
                   </div>
                 {% endif %}
 
                 {% if method.responses %}
-                  <div class="tab-pane{%
-                    if not method.allUriParameters.length and not method.queryParameters
-                    and not method.headers and not method.body
-                    %} active{%
-                    endif
-                    %}" id="{{ resource.uniqueId }}_{{ method.method }}_response">
+                  <div class="tab-pane" id="{{ resource.uniqueId }}_{{ method.method }}_response">
                     {% for key, response in method.responses %}
                       <h2>HTTP status code <a href="http://httpstatus.es/{{ key }}" target="_blank">{{ key }}</a></h2>
                       {% markdown %}{{ response.description}}{% endmarkdown %}
@@ -180,51 +167,84 @@
                         {% for key, b in response.body %}
                           <p><strong>Type: {{ key }}</strong></p>
 
-                          {% if b.schema %}
-                            <p><strong>Schema</strong>:</p>
-                            <pre><code>{{ b.schema | escape }}</code></pre>
-                          {% endif %}
-
                           {% if b.example %}
                             <p><strong>Example</strong>:</p>
                             <pre><code>{{ b.example | escape }}</code></pre>
                           {% endif %}
+
+                          {% if b.schema %}
+                            {% include "./schema.nunjucks" %}
+                          {% endif %}
+
                         {% endfor %}
                       {% endif %}
                     {% endfor %}
                   </div>
                 {% endif %}
-
-                {% if method.securedBy.length %}
-                  <div class="tab-pane" id="{{ resource.uniqueId }}_{{ method.method }}_securedby">
-                    {% set securityScheme = securitySchemeWithName(method.securedBy) %}
-                    Secured by {{ method.securedBy }}
-
-                    {% if securityScheme.describedBy.headers %}
-                      <h3>Headers</h3>
-                      <ul>
-                        {% for key, item in securityScheme.describedBy.headers %}
-                          {% include "./item.nunjucks" %}
+                  <div class="tab-pane" id="{{ resource.uniqueId }}_{{ method.method }}_tring">
+                    <form class="form-horizontal">
+                    {% if resource.allUriParameters.length %}
+                      <section type="uri">
+                        <h3>URI Parameters</h3>
+                        {% for item in resource.allUriParameters %}
+                          {% include "./form-item.nunjucks" %}
                         {% endfor %}
-                      </ul>
+                      </section>
                     {% endif %}
-
-                    {% for key, response in securityScheme.describedBy.responses %}
-                      <h2>HTTP status code <a href="http://httpstatus.es/{{ key }}" target="_blank">{{ key }}</a></h2>
-                      {% markdown %}{{ response.description}}{% endmarkdown %}
-
-                      {% if response.headers %}
-                        <h3>Headers</h3>
-                        <ul>
-                          {% for key, item in response.headers %}
-                            {% include "./item.nunjucks" %}
-                          {% endfor %}
-                        </ul>
-                      {% endif %}
-                    {% endfor %}
-
+                    {% if method.queryParameters %}
+                      <section type="query">
+                        <h3>Query Parameters</h3>
+                        {% for key, item in method.queryParameters %}
+                          {% include "./form-item.nunjucks" %}
+                        {% endfor %}
+                      </section>
+                    {% endif %}
+                    {% if method.body %}
+                      <h3>Request Payload</h3>
+                      {% for key, b in method.body %}
+                        <p><strong>Type: {{ key }}</strong></p>
+                        {% if b.formParameters %}
+                          <strong>Form Parameters</strong>
+                          <ul>
+                            {% for key, item in b.formParameters %}
+                              {% include "./item.nunjucks" %}
+                            {% endfor %}
+                          </ul>
+                        {% endif %}
+                        <!--Use example directly-->
+                        {% if b.example %}
+                          <section type="example">
+                            <h3>Example</h3>
+                            <pre class="form-control request-payload" contenteditable="true">{{ b.example | escape }}</pre>
+                          </section>
+                        {% endif %}
+                      {% endfor %}
+                    {% endif %}
+                      <input type="submit" class="btn btn-success btn-lg request-btn" data-method="{{ method.method }}" data-path="{{ resource.parentUrl + resource.relativeUri }}" value="Try it out"/>
+                    </form>
+                    <section class="response-body hide">
+                      <section type="url">
+                        <h3>Request URL</h3>
+                        <pre class="bg-gray">
+                        </pre>
+                      </section>
+                      <section type="body">
+                        <h3>Response Body</h3>
+                        <pre class="bg-gray">
+                        </pre>
+                      </section>
+                      <section type="code">
+                        <h3>Response Code</h3>
+                        <pre class="bg-gray">
+                        </pre>
+                      </section>
+                      <section type="header">
+                        <h3>Response Headers</h3>
+                        <pre class="bg-gray">
+                        </pre>
+                      </section>
+                    </section>
                   </div>
-                {% endif %}
               </div>
             </div>
           </div>

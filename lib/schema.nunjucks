@@ -1,0 +1,3 @@
+<p><strong>Schema</strong>:</p>
+<div class="schema-data">{{ b.schema }}</div>
+<pre class="schema"></pre>
